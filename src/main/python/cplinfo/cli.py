@@ -1,0 +1,178 @@
+#!/usr/bin/env python
+# -*- coding: UTF-8 -*-
+
+# Copyright (c) Sandflow Consulting LLC
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this
+#    list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+# ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+import xml.etree.ElementTree as et
+import argparse
+from dataclasses import dataclass
+from enum import Enum
+import uuid
+import re
+import logging
+import json
+import typing
+from fractions import Fraction
+
+LOGGER = logging.getLogger(__name__)
+
+def split_qname(qname: str):
+  m = re.match(r'\{(.*)\}(.*)', qname)
+  return (m.group(1) if m else None, m.group(2) if m else None)
+
+REGXML_NS = {
+  "r1" : "http://www.smpte-ra.org/reg/335/2012"
+}
+
+COMPATIBLE_CPL_NS = set((
+  "http://www.smpte-ra.org/schemas/2067-3/2016",
+  "http://www.smpte-ra.org/schemas/2067-3/2013"
+))
+
+COMPATIBLE_CORE_NS = set((
+  "http://www.smpte-ra.org/schemas/2067-2/2013",
+  "http://www.smpte-ra.org/schemas/2067-2/2016",
+  "http://www.smpte-ra.org/ns/2067-2/2020"
+))
+
+
+class MainImageVirtualTrack:
+  """Image information"""
+
+  sample_rate: Fraction
+  stored_width: int
+  stored_height: int
+
+  def __init__(self, descriptor_element: et.Element) -> None:
+    self.sample_rate = Fraction(descriptor_element.findtext(".//r1:SampleRate", namespaces=REGXML_NS))
+    self.stored_width = int(descriptor_element.findtext(".//r1:StoredWidth", namespaces=REGXML_NS))
+    self.stored_height = int(descriptor_element.findtext(".//r1:StoredWidth", namespaces=REGXML_NS))
+
+  def to_dict(self) -> dict:
+    return {
+      "kind": "main_image",
+      "essence_info": {
+        "sample_rate": str(self.sample_rate),
+        "stored_width": self.stored_width,
+        "stored_height": self.stored_height
+      }
+    }
+
+class MainAudioVirtualTrack:
+  """Image information"""
+
+  @property
+  def kind(self) -> str:
+    return "main_image"
+
+  sample_rate: Fraction
+
+  def __init__(self, descriptor_element: et.Element) -> None:
+    self.sample_rate = Fraction(descriptor_element.findtext(".//r1:SampleRate", namespaces=REGXML_NS))
+
+  def to_dict(self) -> dict:
+    return {
+      "kind": "main_audio",
+      "essence_info": {
+        "sample_rate": str(self.sample_rate),
+      }
+    }
+
+class CPLInfo:
+  """CPL information"""
+  namespace: str
+  content_title: str
+  virtual_tracks: typing.List[typing.Any]
+
+  def __init__(self, cpl_element: et.Element) -> None:
+    self.namespace, local_name = split_qname(cpl_element.tag)
+
+    if self.namespace not in COMPATIBLE_CPL_NS:
+      LOGGER.error("Unknown CompositionPlaylist namespace: %s", self.namespace)
+
+    if local_name != "CompositionPlaylist":
+      LOGGER.error("Unknown CompositionPlaylist element name: %s", local_name)
+
+    ns_dict = {"cpl": self.namespace}
+
+    self.content_title = cpl_element.findtext(".//cpl:ContentTitle", namespaces=ns_dict)
+
+    self.virtual_tracks = []
+
+    sequence_list = cpl_element.find("./cpl:SegmentList/cpl:Segment/cpl:SequenceList", namespaces=ns_dict)
+
+    for sequence in sequence_list:
+      id = sequence.findtext("cpl:TrackId", namespaces=ns_dict)
+
+      if id is None:
+        LOGGER.error("Sequence is missing TrackId")
+        continue
+
+      sequence_ns, sequence_name = split_qname(sequence.tag)
+
+      if sequence_ns not in COMPATIBLE_CORE_NS:
+        LOGGER.warning("Unknown virtual track namespace %s", sequence_ns)
+        continue
+
+      if sequence_name == "MainImageSequence":
+        vt_class = MainImageVirtualTrack
+      elif sequence_name == "MainAudioSequence":
+        vt_class = MainAudioVirtualTrack
+      else:
+        LOGGER.warning("Unknown Sequence kind: %s", sequence_name)
+        continue
+
+      source_encoding = sequence.findtext(".//cpl:SourceEncoding", namespaces=ns_dict)
+
+      if source_encoding is None:
+        LOGGER.error("Cannot find source encoding descriptor")
+        continue
+
+      essence_descriptor = cpl_element.find(f".//cpl:EssenceDescriptor[cpl:Id='{source_encoding}']", namespaces=ns_dict)
+
+      if essence_descriptor is None:
+        LOGGER.error("Cannot find essence descriptor")
+        continue
+
+      self.virtual_tracks.append(vt_class(essence_descriptor))
+
+  def to_dict(self) -> dict:
+    return {
+      "namespace": self.namespace,
+      "content_title": self.content_title,
+      "virtual_tracks" : [vt.to_dict() for vt in self.virtual_tracks]
+    }
+
+def main():
+  parser = argparse.ArgumentParser(description="Extracts Composition information from an IMF CPL document")
+  parser.add_argument('cpl_file', type=argparse.FileType(mode='r',encoding="UTF-8"), help='Path to the CPL document')
+  args = parser.parse_args()
+
+  cpl_doc = et.parse(args.cpl_file)
+
+  cpl_info = CPLInfo(cpl_doc.getroot())
+
+  print(json.dumps(cpl_info.to_dict(), indent="  "))
+
+if __name__ == "__main__":
+  main()
