@@ -41,6 +41,7 @@ def split_qname(qname: str):
   return (m.group(1) if m else None, m.group(2) if m else None)
 
 REGXML_NS = {
+  "r0" : "http://www.smpte-ra.org/reg/395/2014/13/1/aaf",
   "r1" : "http://www.smpte-ra.org/reg/335/2012"
 }
 
@@ -86,10 +87,15 @@ class MainAudioVirtualTrack:
     return "main_image"
 
   sample_rate: Fraction
+  channels: typing.List[str]
+  soundfield: str
 
   def __init__(self, descriptor_element: et.Element) -> None:
     self.sample_rate = Fraction(descriptor_element.findtext(".//r1:SampleRate", namespaces=REGXML_NS))
     self.spoken_language = descriptor_element.findtext(".//r1:RFC5646SpokenLanguage", namespaces=REGXML_NS)
+    
+    self.channels = [x.text for x in descriptor_element.findall(".//r0:AudioChannelLabelSubDescriptor/r1:MCATagSymbol", namespaces=REGXML_NS)]
+    self.soundfield = descriptor_element.findtext(".//r0:SoundfieldGroupLabelSubDescriptor/r1:MCATagSymbol", namespaces=REGXML_NS)
 
   def to_dict(self) -> dict:
     return {
@@ -97,6 +103,8 @@ class MainAudioVirtualTrack:
       "essence_info": {
         "sample_rate": str(self.sample_rate),
         "spoken_language": str(self.spoken_language),
+        "soundfield": self.soundfield,
+        "channels": self.channels
       }
     }
 
