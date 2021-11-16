@@ -66,7 +66,7 @@ class MainImageVirtualTrack:
   def __init__(self, descriptor_element: et.Element) -> None:
     self.sample_rate = Fraction(descriptor_element.findtext(".//r1:SampleRate", namespaces=REGXML_NS))
     self.stored_width = int(descriptor_element.findtext(".//r1:StoredWidth", namespaces=REGXML_NS))
-    self.stored_height = int(descriptor_element.findtext(".//r1:StoredWidth", namespaces=REGXML_NS))
+    self.stored_height = int(descriptor_element.findtext(".//r1:StoredHeight", namespaces=REGXML_NS))
 
   def to_dict(self) -> dict:
     return {
@@ -89,12 +89,14 @@ class MainAudioVirtualTrack:
 
   def __init__(self, descriptor_element: et.Element) -> None:
     self.sample_rate = Fraction(descriptor_element.findtext(".//r1:SampleRate", namespaces=REGXML_NS))
+    self.spoken_language = str(descriptor_element.findtext(".//r1:RFC5646SpokenLanguage", namespaces=REGXML_NS))
 
   def to_dict(self) -> dict:
     return {
       "kind": "main_audio",
       "essence_info": {
         "sample_rate": str(self.sample_rate),
+        "spoken_language": str(self.spoken_language),
       }
     }
 
