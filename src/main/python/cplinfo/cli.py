@@ -70,19 +70,21 @@ class MainImageVirtualTrack:
   stored_height: int
   fingerprint: str
 
-  def __init__(self, descriptor_element: et.Element, fingerprint: str, track_id, duration) -> None:
+  def __init__(self, descriptor_element: et.Element, fingerprint: str, track_id, duration, resources) -> None:
     self.sample_rate = Fraction(descriptor_element.findtext(".//r1:SampleRate", namespaces=REGXML_NS))
     self.stored_width = int(descriptor_element.findtext(".//r1:StoredWidth", namespaces=REGXML_NS))
     self.stored_height = int(descriptor_element.findtext(".//r1:StoredHeight", namespaces=REGXML_NS))
     self.fingerprint = fingerprint
     self.track_id = track_id
     self.duration = duration
+    self.resources = resources
 
   def to_dict(self) -> dict:
     return {
       "kind": "main_image",
       "fingerprint": self.fingerprint,
       "virtual_track_id": self.track_id,
+      "resource_count": self.resources,
       "duration" : str(time.strftime('%H:%M:%S.%s', time.gmtime(round(float(self.duration), 3)))),
       "essence_info": {
         "sample_rate": str(self.sample_rate),
@@ -103,12 +105,13 @@ class MainAudioVirtualTrack:
   soundfield: str
   fingerprint: str
 
-  def __init__(self, descriptor_element: et.Element, fingerprint: str, track_id, duration) -> None:
+  def __init__(self, descriptor_element: et.Element, fingerprint: str, track_id, duration, resources) -> None:
     self.sample_rate = Fraction(descriptor_element.findtext(".//r1:SampleRate", namespaces=REGXML_NS))
     self.spoken_language = descriptor_element.findtext(".//r1:RFC5646SpokenLanguage", namespaces=REGXML_NS)
     self.fingerprint = fingerprint
     self.track_id = track_id
     self.duration = duration
+    self.resources = resources
     self.channels = [x.text for x in descriptor_element.findall(".//r0:AudioChannelLabelSubDescriptor/r1:MCATagSymbol", namespaces=REGXML_NS)]
     self.soundfield = descriptor_element.findtext(".//r0:SoundfieldGroupLabelSubDescriptor/r1:MCATagSymbol", namespaces=REGXML_NS)
 
@@ -117,6 +120,7 @@ class MainAudioVirtualTrack:
       "kind": "main_audio",
       "fingerprint": self.fingerprint,
       "virtual_track_id": self.track_id,
+      "resource_count": self.resources,
       "duration": str(time.strftime('%H:%M:%S.%s', time.gmtime(round(float(self.duration), 3)))),
       "essence_info": {
         "sample_rate": str(self.sample_rate),
@@ -211,7 +215,7 @@ class CPLInfo:
         fingerprint.update(bytes(str(repeat_count), 'ascii'))
         fingerprint.update(bytes(str(trackfile_id), 'ascii'))
 
-      self.virtual_tracks.append(vt_class(essence_descriptor, fingerprint.hexdigest(), track_id, total_duration))
+      self.virtual_tracks.append(vt_class(essence_descriptor, fingerprint.hexdigest(), track_id, total_duration, len(resources)))
 
   def to_dict(self) -> dict:
     return {
