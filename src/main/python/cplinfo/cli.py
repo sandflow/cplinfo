@@ -55,7 +55,8 @@ def smpte_ul_lookup(u):
 
 REGXML_NS = {
   "r0" : "http://www.smpte-ra.org/reg/395/2014/13/1/aaf",
-  "r1" : "http://www.smpte-ra.org/reg/335/2012"
+  "r1" : "http://www.smpte-ra.org/reg/335/2012",
+  "r2" : "http://www.smpte-ra.org/reg/2003/2012"
 }
 
 COMPATIBLE_CPL_NS = set((
@@ -116,7 +117,7 @@ class MainAudioVirtualTrack:
 
   @property
   def kind(self) -> str:
-    return "main_image"
+    return "main_audio"
 
   sample_rate: Fraction
   channels: typing.List[str]
@@ -149,6 +150,41 @@ class MainAudioVirtualTrack:
         "container_format": smpte_ul_lookup(self.container_format),
         "channel_assignment": smpte_ul_lookup(self.channel_assignment),
         "channels": self.channels
+      }
+    }
+
+class SubtitlesSequence:
+  """Subtitle information"""
+
+  @property
+  def kind(self) -> str:
+    return "main_subtitle"
+
+  sample_rate: Fraction
+  channels: typing.List[str]
+  soundfield: str
+  fingerprint: str
+
+  def __init__(self, descriptor_element: et.Element, fingerprint: str, track_id, duration, resources) -> None:
+    self.sample_rate = Fraction(descriptor_element.findtext(".//r1:SampleRate", namespaces=REGXML_NS))
+    self.subtitle_language = descriptor_element.findtext(".//r2:RFC5646LanguageTagList", namespaces=REGXML_NS)
+    self.fingerprint = fingerprint
+    self.track_id = track_id
+    self.duration = duration
+    self.resources = resources
+    self.container_format = str(descriptor_element.findtext(".//r1:ContainerFormat", namespaces=REGXML_NS))
+
+  def to_dict(self) -> dict:
+    return {
+      "kind": "main_subtitle",
+      "fingerprint": self.fingerprint,
+      "virtual_track_id": self.track_id,
+      "resource_count": self.resources,
+      "duration": str(time.strftime('%H:%M:%S.%s', time.gmtime(round(float(self.duration), 3)))),
+      "essence_info": {
+        "sample_rate": str(self.sample_rate),
+        "subtitle_language": str(self.subtitle_language),
+        "container_format": smpte_ul_lookup(self.container_format)
       }
     }
 
@@ -195,6 +231,8 @@ class CPLInfo:
         vt_class = MainImageVirtualTrack
       elif sequence_name == "MainAudioSequence":
         vt_class = MainAudioVirtualTrack
+      elif sequence_name == "SubtitlesSequence":
+        vt_class = SubtitlesSequence
       else:
         LOGGER.warning("Unknown Sequence kind: %s", sequence_name)
         continue
