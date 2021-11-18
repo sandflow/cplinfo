@@ -45,6 +45,14 @@ def split_qname(qname: str):
 def cpl_rational_to_fraction(r: str) -> Fraction:
   return Fraction(*map(int, r.split()))
 
+def smpte_ul_lookup(u):
+  label : str
+  if u.replace('urn:smpte:ul:', '')  in smpte_ul:
+    label = smpte_ul[u.replace('urn:smpte:ul:', '')]
+  else:
+    label = None
+  return label
+
 REGXML_NS = {
   "r0" : "http://www.smpte-ra.org/reg/395/2014/13/1/aaf",
   "r1" : "http://www.smpte-ra.org/reg/335/2012"
@@ -74,6 +82,11 @@ class MainImageVirtualTrack:
     self.sample_rate = Fraction(descriptor_element.findtext(".//r1:SampleRate", namespaces=REGXML_NS))
     self.stored_width = int(descriptor_element.findtext(".//r1:StoredWidth", namespaces=REGXML_NS))
     self.stored_height = int(descriptor_element.findtext(".//r1:StoredHeight", namespaces=REGXML_NS))
+    self.picture_compression = str(descriptor_element.findtext(".//r1:PictureCompression", namespaces=REGXML_NS))
+    self.container_format = str(descriptor_element.findtext(".//r1:ContainerFormat", namespaces=REGXML_NS))
+    self.transfer_characteristic = str(descriptor_element.findtext(".//r1:TransferCharacteristic", namespaces=REGXML_NS))
+    self.coding_equations = str(descriptor_element.findtext(".//r1:CodingEquations", namespaces=REGXML_NS))
+    self.color_primaries = str(descriptor_element.findtext(".//r1:ColorPrimaries", namespaces=REGXML_NS))
     self.fingerprint = fingerprint
     self.track_id = track_id
     self.duration = duration
@@ -89,12 +102,17 @@ class MainImageVirtualTrack:
       "essence_info": {
         "sample_rate": str(self.sample_rate),
         "stored_width": self.stored_width,
-        "stored_height": self.stored_height
+        "stored_height": self.stored_height,
+        "picture_compression": smpte_ul_lookup(self.picture_compression),
+        "container_format": smpte_ul_lookup(self.container_format),
+        "transfer_characteristic": smpte_ul_lookup(self.transfer_characteristic),
+        "coding_equations": smpte_ul_lookup(self.coding_equations),
+        "color_encoding": smpte_ul_lookup(self.color_primaries)
       }
     }
 
 class MainAudioVirtualTrack:
-  """Image information"""
+  """Sound information"""
 
   @property
   def kind(self) -> str:
@@ -114,6 +132,8 @@ class MainAudioVirtualTrack:
     self.resources = resources
     self.channels = [x.text for x in descriptor_element.findall(".//r0:AudioChannelLabelSubDescriptor/r1:MCATagSymbol", namespaces=REGXML_NS)]
     self.soundfield = descriptor_element.findtext(".//r0:SoundfieldGroupLabelSubDescriptor/r1:MCATagSymbol", namespaces=REGXML_NS)
+    self.container_format = str(descriptor_element.findtext(".//r1:ContainerFormat", namespaces=REGXML_NS))
+    self.channel_assignment = str(descriptor_element.findtext(".//r1:ChannelAssignment", namespaces=REGXML_NS))
 
   def to_dict(self) -> dict:
     return {
@@ -126,6 +146,8 @@ class MainAudioVirtualTrack:
         "sample_rate": str(self.sample_rate),
         "spoken_language": str(self.spoken_language),
         "soundfield": self.soundfield,
+        "container_format": smpte_ul_lookup(self.container_format),
+        "channel_assignment": smpte_ul_lookup(self.channel_assignment),
         "channels": self.channels
       }
     }
@@ -230,6 +252,10 @@ def main():
   args = parser.parse_args()
 
   cpl_doc = et.parse(args.cpl_file)
+
+  global smpte_ul
+  with open("smpte_ul.json", 'r') as smpte_ul_json:
+    smpte_ul = json.load(smpte_ul_json)
 
   cpl_info = CPLInfo(cpl_doc.getroot())
 
