@@ -47,8 +47,8 @@ def cpl_rational_to_fraction(r: str) -> Fraction:
 
 def smpte_ul_lookup(u):
   label : str
-  if u.replace('urn:smpte:ul:', '')  in smpte_ul:
-    label = smpte_ul[u.replace('urn:smpte:ul:', '')]
+  if u in ul_list:
+    label = ul_list[u]
   else:
     label = None
   return label
@@ -58,6 +58,8 @@ REGXML_NS = {
   "r1" : "http://www.smpte-ra.org/reg/335/2012",
   "r2" : "http://www.smpte-ra.org/reg/2003/2012"
 }
+
+LABELS_NS = {"labels" : "http://www.smpte-ra.org/schemas/400/2012"}
 
 COMPATIBLE_CPL_NS = set((
   "http://www.smpte-ra.org/schemas/2067-3/2016",
@@ -264,7 +266,7 @@ class CPLInfo:
 
         if duration == 0:
           continue
-        total_duration = total_duration + duration
+        total_duration += duration
 
         repeat_count = int(resource.findtext(".//cpl:RepeatCount", namespaces=ns_dict) or 1)
 
@@ -291,9 +293,15 @@ def main():
 
   cpl_doc = et.parse(args.cpl_file)
 
-  global smpte_ul
-  with open("smpte_ul.json", 'r') as smpte_ul_json:
-    smpte_ul = json.load(smpte_ul_json)
+  smpte_ul_doc = et.parse("smpte_ul_labels.xml")
+  
+  smpte_ul_labels = smpte_ul_doc.getroot()
+  global ul_list
+  ul_list = {}
+  for entry in smpte_ul_labels.findall('.//labels:Entry', LABELS_NS):
+    name = entry.find('labels:Name', LABELS_NS)
+    ul = entry.find('labels:UL', LABELS_NS)
+    ul_list[ul.text] = name.text
 
   cpl_info = CPLInfo(cpl_doc.getroot())
 
