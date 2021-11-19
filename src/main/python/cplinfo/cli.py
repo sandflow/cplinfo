@@ -53,13 +53,22 @@ def smpte_ul_lookup(u):
     label = None
   return label
 
+def smpte_ul_name_list():
+  LABELS_NS = {"labels": "http://www.smpte-ra.org/schemas/400/2012"}
+  smpte_ul_doc = et.parse("smpte_ul_labels.xml")
+  smpte_ul_labels = smpte_ul_doc.getroot()
+  ul_list = {}
+  for entry in smpte_ul_labels.findall('.//labels:Entry', LABELS_NS):
+    name = entry.find('labels:Name', LABELS_NS)
+    ul = entry.find('labels:UL', LABELS_NS)
+    ul_list[ul.text] = name.text
+  return ul_list
+
 REGXML_NS = {
   "r0" : "http://www.smpte-ra.org/reg/395/2014/13/1/aaf",
   "r1" : "http://www.smpte-ra.org/reg/335/2012",
   "r2" : "http://www.smpte-ra.org/reg/2003/2012"
 }
-
-LABELS_NS = {"labels" : "http://www.smpte-ra.org/schemas/400/2012"}
 
 COMPATIBLE_CPL_NS = set((
   "http://www.smpte-ra.org/schemas/2067-3/2016",
@@ -293,15 +302,8 @@ def main():
 
   cpl_doc = et.parse(args.cpl_file)
 
-  smpte_ul_doc = et.parse("smpte_ul_labels.xml")
-  
-  smpte_ul_labels = smpte_ul_doc.getroot()
   global ul_list
-  ul_list = {}
-  for entry in smpte_ul_labels.findall('.//labels:Entry', LABELS_NS):
-    name = entry.find('labels:Name', LABELS_NS)
-    ul = entry.find('labels:UL', LABELS_NS)
-    ul_list[ul.text] = name.text
+  ul_list = smpte_ul_name_list()
 
   cpl_info = CPLInfo(cpl_doc.getroot())
 
