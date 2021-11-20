@@ -34,7 +34,9 @@ import json
 import typing
 from fractions import Fraction
 import hashlib
-import time
+import datetime
+
+from cplinfo.labels import lookup_name
 
 LOGGER = logging.getLogger(__name__)
 
@@ -44,25 +46,6 @@ def split_qname(qname: str):
 
 def cpl_rational_to_fraction(r: str) -> Fraction:
   return Fraction(*map(int, r.split()))
-
-def smpte_ul_lookup(u):
-  label : str
-  if u in ul_list:
-    label = ul_list[u]
-  else:
-    label = None
-  return label
-
-def smpte_ul_name_list():
-  LABELS_NS = {"labels": "http://www.smpte-ra.org/schemas/400/2012"}
-  smpte_ul_doc = et.parse("smpte_ul_labels.xml")
-  smpte_ul_labels = smpte_ul_doc.getroot()
-  ul_list = {}
-  for entry in smpte_ul_labels.findall('.//labels:Entry', LABELS_NS):
-    name = entry.find('labels:Name', LABELS_NS)
-    ul = entry.find('labels:UL', LABELS_NS)
-    ul_list[ul.text] = name.text
-  return ul_list
 
 REGXML_NS = {
   "r0" : "http://www.smpte-ra.org/reg/395/2014/13/1/aaf",
@@ -110,16 +93,16 @@ class MainImageVirtualTrack:
       "fingerprint": self.fingerprint,
       "virtual_track_id": self.track_id,
       "resource_count": self.resources,
-      "duration" : str(time.strftime('%H:%M:%S.%s', time.gmtime(round(float(self.duration), 3)))),
+      "duration": str(datetime.timedelta(milliseconds=int(self.duration*1000))),
       "essence_info": {
         "sample_rate": str(self.sample_rate),
         "stored_width": self.stored_width,
         "stored_height": self.stored_height,
-        "picture_compression": smpte_ul_lookup(self.picture_compression),
-        "container_format": smpte_ul_lookup(self.container_format),
-        "transfer_characteristic": smpte_ul_lookup(self.transfer_characteristic),
-        "coding_equations": smpte_ul_lookup(self.coding_equations),
-        "color_encoding": smpte_ul_lookup(self.color_primaries)
+        "picture_compression": lookup_name(self.picture_compression),
+        "container_format": lookup_name(self.container_format),
+        "transfer_characteristic": lookup_name(self.transfer_characteristic),
+        "coding_equations": lookup_name(self.coding_equations),
+        "color_encoding": lookup_name(self.color_primaries)
       }
     }
 
@@ -153,13 +136,13 @@ class MainAudioVirtualTrack:
       "fingerprint": self.fingerprint,
       "virtual_track_id": self.track_id,
       "resource_count": self.resources,
-      "duration": str(time.strftime('%H:%M:%S.%s', time.gmtime(round(float(self.duration), 3)))),
+      "duration": str(datetime.timedelta(milliseconds=int(self.duration*1000))),
       "essence_info": {
         "sample_rate": str(self.sample_rate),
         "spoken_language": str(self.spoken_language),
         "soundfield": self.soundfield,
-        "container_format": smpte_ul_lookup(self.container_format),
-        "channel_assignment": smpte_ul_lookup(self.channel_assignment),
+        "container_format": lookup_name(self.container_format),
+        "channel_assignment": lookup_name(self.channel_assignment),
         "channels": self.channels
       }
     }
@@ -191,11 +174,11 @@ class SubtitlesSequence:
       "fingerprint": self.fingerprint,
       "virtual_track_id": self.track_id,
       "resource_count": self.resources,
-      "duration": str(time.strftime('%H:%M:%S.%s', time.gmtime(round(float(self.duration), 3)))),
+      "duration": str(datetime.timedelta(milliseconds=int(self.duration*1000))),
       "essence_info": {
         "sample_rate": str(self.sample_rate),
         "subtitle_language": str(self.subtitle_language),
-        "container_format": smpte_ul_lookup(self.container_format)
+        "container_format": lookup_name(self.container_format)
       }
     }
 
@@ -301,9 +284,6 @@ def main():
   args = parser.parse_args()
 
   cpl_doc = et.parse(args.cpl_file)
-
-  global ul_list
-  ul_list = smpte_ul_name_list()
 
   cpl_info = CPLInfo(cpl_doc.getroot())
 
