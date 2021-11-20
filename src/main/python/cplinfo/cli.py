@@ -147,7 +147,7 @@ class MainAudioVirtualTrack:
       }
     }
 
-class SubtitlesSequence:
+class SubtitlesVirtualTrack:
   """Subtitle information"""
 
   @property
@@ -226,7 +226,7 @@ class CPLInfo:
       elif sequence_name == "MainAudioSequence":
         vt_class = MainAudioVirtualTrack
       elif sequence_name == "SubtitlesSequence":
-        vt_class = SubtitlesSequence
+        vt_class = SubtitlesVirtualTrack
       else:
         LOGGER.warning("Unknown Sequence kind: %s", sequence_name)
         continue
