@@ -73,7 +73,7 @@ class MainImageVirtualTrack:
   stored_height: int
   fingerprint: str
 
-  def __init__(self, descriptor_element: et.Element, fingerprint: str, track_id, duration, resources) -> None:
+  def __init__(self, descriptor_element: et.Element, fingerprint: str, track_id: str, duration: Fraction, resource_count: int) -> None:
     self.sample_rate = Fraction(descriptor_element.findtext(".//r1:SampleRate", namespaces=REGXML_NS))
     self.stored_width = int(descriptor_element.findtext(".//r1:StoredWidth", namespaces=REGXML_NS))
     self.stored_height = int(descriptor_element.findtext(".//r1:StoredHeight", namespaces=REGXML_NS))
@@ -85,14 +85,14 @@ class MainImageVirtualTrack:
     self.fingerprint = fingerprint
     self.track_id = track_id
     self.duration = duration
-    self.resources = resources
+    self.resource_count = resource_count
 
   def to_dict(self) -> dict:
     return {
       "kind": "main_image",
       "fingerprint": self.fingerprint,
       "virtual_track_id": self.track_id,
-      "resource_count": self.resources,
+      "resource_count": self.resource_count,
       "duration": str(datetime.timedelta(milliseconds=int(self.duration*1000))),
       "essence_info": {
         "sample_rate": str(self.sample_rate),
@@ -118,13 +118,13 @@ class MainAudioVirtualTrack:
   soundfield: str
   fingerprint: str
 
-  def __init__(self, descriptor_element: et.Element, fingerprint: str, track_id, duration, resources) -> None:
+  def __init__(self, descriptor_element: et.Element, fingerprint: str, track_id: str, duration: Fraction, resource_count: int) -> None:
     self.sample_rate = Fraction(descriptor_element.findtext(".//r1:SampleRate", namespaces=REGXML_NS))
     self.spoken_language = descriptor_element.findtext(".//r1:RFC5646SpokenLanguage", namespaces=REGXML_NS)
     self.fingerprint = fingerprint
     self.track_id = track_id
     self.duration = duration
-    self.resources = resources
+    self.resource_count = resource_count
     self.channels = [x.text for x in descriptor_element.findall(".//r0:AudioChannelLabelSubDescriptor/r1:MCATagSymbol", namespaces=REGXML_NS)]
     self.soundfield = descriptor_element.findtext(".//r0:SoundfieldGroupLabelSubDescriptor/r1:MCATagSymbol", namespaces=REGXML_NS)
     self.container_format = str(descriptor_element.findtext(".//r1:ContainerFormat", namespaces=REGXML_NS))
@@ -135,7 +135,7 @@ class MainAudioVirtualTrack:
       "kind": "main_audio",
       "fingerprint": self.fingerprint,
       "virtual_track_id": self.track_id,
-      "resource_count": self.resources,
+      "resource_count": self.resource_count,
       "duration": str(datetime.timedelta(milliseconds=int(self.duration*1000))),
       "essence_info": {
         "sample_rate": str(self.sample_rate),
@@ -159,13 +159,13 @@ class SubtitlesVirtualTrack:
   soundfield: str
   fingerprint: str
 
-  def __init__(self, descriptor_element: et.Element, fingerprint: str, track_id, duration, resources) -> None:
+  def __init__(self, descriptor_element: et.Element, fingerprint: str, track_id: str, duration: Fraction, resource_count: int) -> None:
     self.sample_rate = Fraction(descriptor_element.findtext(".//r1:SampleRate", namespaces=REGXML_NS))
     self.subtitle_language = descriptor_element.findtext(".//r2:RFC5646LanguageTagList", namespaces=REGXML_NS)
     self.fingerprint = fingerprint
     self.track_id = track_id
     self.duration = duration
-    self.resources = resources
+    self.resource_count = resource_count
     self.container_format = str(descriptor_element.findtext(".//r1:ContainerFormat", namespaces=REGXML_NS))
 
   def to_dict(self) -> dict:
@@ -173,7 +173,7 @@ class SubtitlesVirtualTrack:
       "kind": "main_subtitle",
       "fingerprint": self.fingerprint,
       "virtual_track_id": self.track_id,
-      "resource_count": self.resources,
+      "resource_count": self.resource_count,
       "duration": str(datetime.timedelta(milliseconds=int(self.duration*1000))),
       "essence_info": {
         "sample_rate": str(self.sample_rate),
@@ -254,18 +254,18 @@ class CPLInfo:
 
         entry_point = edit_rate * int(resource.findtext(".//cpl:EntryPoint", namespaces=ns_dict) or 0)
 
-        duration = int(resource.findtext(".//cpl:SourceDuration", namespaces=ns_dict) or resource.findtext(".//cpl:IntrinsicDuration", namespaces=ns_dict)) / float(edit_rate)
+        resource_duration = int(resource.findtext(".//cpl:SourceDuration", namespaces=ns_dict) or resource.findtext(".//cpl:IntrinsicDuration", namespaces=ns_dict)) / edit_rate
 
-        if duration == 0:
+        if resource_duration == 0:
           continue
-        total_duration += duration
+        total_duration += resource_duration
 
         repeat_count = int(resource.findtext(".//cpl:RepeatCount", namespaces=ns_dict) or 1)
 
         trackfile_id = resource.findtext(".//cpl:TrackFileId", namespaces=ns_dict)
 
         fingerprint.update(bytes(str(entry_point), 'ascii'))
-        fingerprint.update(bytes(str(duration), 'ascii'))
+        fingerprint.update(bytes(str(resource_duration), 'ascii'))
         fingerprint.update(bytes(str(repeat_count), 'ascii'))
         fingerprint.update(bytes(str(trackfile_id), 'ascii'))
 
