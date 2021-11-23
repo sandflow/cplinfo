@@ -93,7 +93,7 @@ class MainImageVirtualTrack:
       "fingerprint": self.fingerprint,
       "virtual_track_id": self.track_id,
       "resource_count": self.resource_count,
-      "duration": str(datetime.timedelta(milliseconds=int(self.duration*1000))),
+      "duration": str(datetime.timedelta(milliseconds=int(self.duration*1000)))[:-3],
       "essence_info": {
         "sample_rate": str(self.sample_rate),
         "stored_width": self.stored_width,
@@ -136,7 +136,7 @@ class MainAudioVirtualTrack:
       "fingerprint": self.fingerprint,
       "virtual_track_id": self.track_id,
       "resource_count": self.resource_count,
-      "duration": str(datetime.timedelta(milliseconds=int(self.duration*1000))),
+      "duration": str(datetime.timedelta(milliseconds=int(self.duration*1000)))[:-3],
       "essence_info": {
         "sample_rate": str(self.sample_rate),
         "spoken_language": str(self.spoken_language),
@@ -174,7 +174,7 @@ class SubtitlesVirtualTrack:
       "fingerprint": self.fingerprint,
       "virtual_track_id": self.track_id,
       "resource_count": self.resource_count,
-      "duration": str(datetime.timedelta(milliseconds=int(self.duration*1000))),
+      "duration": str(datetime.timedelta(milliseconds=int(self.duration*1000)))[:-3],
       "essence_info": {
         "sample_rate": str(self.sample_rate),
         "subtitle_language": str(self.subtitle_language),
